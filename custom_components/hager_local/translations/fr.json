@@ -1,0 +1,152 @@
+{
+  "title": "Hager Local",
+  "config": {
+    "step": {
+      "user": {
+        "title": "Connexion Hager",
+        "description": "Connectez-vous avec votre compte myHager / flow. L'integration decouvre le Flow EMC, le compteur photovoltaïque et la borne witty solar qui lui est liee.",
+        "data": {
+          "email": "Adresse e-mail",
+          "password": "Mot de passe"
+        }
+      },
+      "reauth_confirm": {
+        "title": "Reconnecter Hager",
+        "description": "Saisissez a nouveau votre mot de passe myHager pour renouveler la session Flow.",
+        "data": {
+          "password": "Mot de passe"
+        }
+      },
+      "reconfigure": {
+        "title": "Reconfigurer Hager",
+        "description": "Mettez a jour les identifiants myHager utilises par cette integration.",
+        "data": {
+          "email": "Adresse e-mail",
+          "password": "Mot de passe"
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "Impossible de joindre Hager Flow.",
+      "invalid_auth": "Adresse e-mail ou mot de passe myHager invalide.",
+      "interaction_required": "Hager demande une confirmation dans le navigateur (consentement ou MFA) avant que Home Assistant puisse se connecter.",
+      "different_account": "Utilisez le meme compte myHager que l'entree existante, ou supprimez l'entree avant d'en ajouter un autre.",
+      "unknown": "Erreur inattendue."
+    },
+    "abort": {
+      "already_configured": "Ce compte Hager est deja configure.",
+      "reauth_successful": "Hager a bien ete reconnecte.",
+      "reconfigure_successful": "La configuration Hager a ete mise a jour."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Options Hager Local",
+        "data": {
+          "scan_interval": "Intervalle de rafraichissement en secondes",
+          "status_stale_minutes": "Delai avant hors ligne de la borne en minutes"
+        }
+      }
+    }
+  },
+  "entity": {
+    "sensor": {
+      "charging_mode": {
+        "name": "Mode de charge"
+      },
+      "total_power": {
+        "name": "Puissance de charge"
+      },
+      "solar_power": {
+        "name": "Puissance solaire"
+      },
+      "grid_power": {
+        "name": "Puissance reseau"
+      },
+      "total_energy": {
+        "name": "Compteur energie"
+      },
+      "max_charge_current": {
+        "name": "Courant de charge maximal"
+      },
+      "min_charge_current": {
+        "name": "Courant de charge minimal"
+      },
+      "phase_count": {
+        "name": "Phases actives"
+      },
+      "device_status": {
+        "name": "Etat"
+      },
+      "installation_status": {
+        "name": "Etat installation"
+      },
+      "product_name": {
+        "name": "Produit"
+      },
+      "short_id": {
+        "name": "Short ID"
+      },
+      "meter_count": {
+        "name": "Compteurs"
+      },
+      "controlled_device_count": {
+        "name": "Appareils pilotes"
+      },
+      "storage_count": {
+        "name": "Batteries"
+      },
+      "status_code": {
+        "name": "Code statut"
+      },
+      "peak_power": {
+        "name": "Puissance crete"
+      },
+      "modbus_address": {
+        "name": "Adresse Modbus"
+      },
+      "wiring_mode": {
+        "name": "Mode de cablage"
+      },
+      "control_pilot_state": {
+        "name": "Etat control pilot"
+      },
+      "session_status": {
+        "name": "Etat session"
+      },
+      "last_status_timestamp": {
+        "name": "Derniere mise a jour statut"
+      }
+    },
+    "binary_sensor": {
+      "online": {
+        "name": "En ligne"
+      },
+      "charging": {
+        "name": "En charge"
+      },
+      "car_connected": {
+        "name": "Voiture connectee"
+      },
+      "activated": {
+        "name": "Activee"
+      }
+    },
+    "select": {
+      "charging_strategy": {
+        "name": "Mode de charge"
+      }
+    },
+    "button": {
+      "boost": {
+        "name": "Boost"
+      }
+    },
+    "switch": {
+      "boost": {
+        "name": "Boost"
+      }
+    }
+  }
+}
