@@ -1,0 +1,6 @@
+{
+  "name": "Hager Local",
+  "content_in_root": false,
+  "render_readme": true,
+  "country": ["FR", "BE", "DE", "ES", "IT", "NL"]
+}
