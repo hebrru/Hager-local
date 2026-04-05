@@ -1,0 +1,152 @@
+{
+  "title": "Hager Local",
+  "config": {
+    "step": {
+      "user": {
+        "title": "Connect Hager",
+        "description": "Sign in with your myHager / flow account. The integration discovers the Flow EMC, the photovoltaic meter, and the witty solar wallbox linked to it.",
+        "data": {
+          "email": "Email address",
+          "password": "Password"
+        }
+      },
+      "reauth_confirm": {
+        "title": "Reconnect Hager",
+        "description": "Enter your myHager password again to renew the Flow session.",
+        "data": {
+          "password": "Password"
+        }
+      },
+      "reconfigure": {
+        "title": "Reconfigure Hager",
+        "description": "Update the myHager credentials used by this integration.",
+        "data": {
+          "email": "Email address",
+          "password": "Password"
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "Cannot connect to Hager Flow.",
+      "invalid_auth": "Invalid myHager email or password.",
+      "interaction_required": "Hager requires a browser confirmation (consent or MFA) before Home Assistant can sign in.",
+      "different_account": "Use the same myHager account as the existing entry, or remove the entry and add the other account separately.",
+      "unknown": "Unexpected error."
+    },
+    "abort": {
+      "already_configured": "This Hager account is already configured.",
+      "reauth_successful": "Hager has been reconnected successfully.",
+      "reconfigure_successful": "The Hager configuration has been updated."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Hager Local options",
+        "data": {
+          "scan_interval": "Refresh interval in seconds",
+          "status_stale_minutes": "Wallbox offline delay in minutes"
+        }
+      }
+    }
+  },
+  "entity": {
+    "sensor": {
+      "charging_mode": {
+        "name": "Charging mode"
+      },
+      "total_power": {
+        "name": "Charging power"
+      },
+      "solar_power": {
+        "name": "Solar power"
+      },
+      "grid_power": {
+        "name": "Grid power"
+      },
+      "total_energy": {
+        "name": "Energy counter"
+      },
+      "max_charge_current": {
+        "name": "Maximum charge current"
+      },
+      "min_charge_current": {
+        "name": "Minimum charge current"
+      },
+      "phase_count": {
+        "name": "Active phases"
+      },
+      "device_status": {
+        "name": "Device status"
+      },
+      "installation_status": {
+        "name": "Installation status"
+      },
+      "product_name": {
+        "name": "Product"
+      },
+      "short_id": {
+        "name": "Short ID"
+      },
+      "meter_count": {
+        "name": "Meters"
+      },
+      "controlled_device_count": {
+        "name": "Controlled devices"
+      },
+      "storage_count": {
+        "name": "Batteries"
+      },
+      "status_code": {
+        "name": "Status code"
+      },
+      "peak_power": {
+        "name": "Peak power"
+      },
+      "modbus_address": {
+        "name": "Modbus address"
+      },
+      "wiring_mode": {
+        "name": "Wiring mode"
+      },
+      "control_pilot_state": {
+        "name": "Control pilot state"
+      },
+      "session_status": {
+        "name": "Session status"
+      },
+      "last_status_timestamp": {
+        "name": "Last status update"
+      }
+    },
+    "binary_sensor": {
+      "online": {
+        "name": "Online"
+      },
+      "charging": {
+        "name": "Charging"
+      },
+      "car_connected": {
+        "name": "Car connected"
+      },
+      "activated": {
+        "name": "Activated"
+      }
+    },
+    "select": {
+      "charging_strategy": {
+        "name": "Charging mode"
+      }
+    },
+    "button": {
+      "boost": {
+        "name": "Boost"
+      }
+    },
+    "switch": {
+      "boost": {
+        "name": "Boost"
+      }
+    }
+  }
+}
