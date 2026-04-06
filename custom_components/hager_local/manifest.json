@@ -9,5 +9,5 @@
   "issue_tracker": "https://github.com/hebrru/Hager-local/issues",
   "loggers": ["custom_components.hager_local"],
   "requirements": [],
-  "version": "0.2.0"
+  "version": "0.2.18"
 }

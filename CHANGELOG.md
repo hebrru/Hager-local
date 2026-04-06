@@ -1,5 +1,26 @@
 # Changelog
 
+## 0.2.18
+
+Expanded `witty solar` support with stable runtime controls and improved startup behavior.
+
+### Added
+
+- Solar charge mode selection from Home Assistant:
+  `Boost`, `Solar only`, `Solar minimum`, `Solar delayed`
+- Wallbox settings from Home Assistant:
+  cable lock, fallback charging, LED intensity and solar holding time
+- Home power sensor on the `Flow EMC`
+- Local cache hydration to keep the last known wallbox profile across restarts
+
+### Fixed
+
+- Startup cases where entities could stay `unknown` until the integration was reloaded
+- Grid and photovoltaic power sourcing to use the live Flow / E3DC status data
+- Hager reauthentication handling for `reAuthToken`
+- Witty Solar charge-mode payloads so `Solar minimum` and `Solar delayed` use the values accepted by Hager
+- EVSE update payloads so generic wallbox setting changes work reliably from Home Assistant
+
 ## 0.2.0
 
 Initial public release of `Hager Local` for Home Assistant.

@@ -56,6 +56,16 @@ BINARY_SENSOR_DESCRIPTIONS: tuple[HagerBinarySensorDescription, ...] = (
         value_fn=lambda wallbox: None,
     ),
     HagerBinarySensorDescription(
+        key="cable_locked_state",
+        translation_key="cable_locked_state",
+        value_fn=lambda wallbox: wallbox.lock_cable,
+    ),
+    HagerBinarySensorDescription(
+        key="fallback_charge_allowed_state",
+        translation_key="fallback_charge_allowed_state",
+        value_fn=lambda wallbox: wallbox.charge_in_fallback_mode_allowed,
+    ),
+    HagerBinarySensorDescription(
         key="charging",
         translation_key="charging",
         device_class=BinarySensorDeviceClass.BATTERY_CHARGING,
