@@ -64,6 +64,14 @@ class HagerBoostSwitch(HagerLocalEntity, SwitchEntity):
         except HagerApiError as err:
             raise HomeAssistantError(str(err)) from err
 
+    async def async_turn_off(self, **kwargs) -> None:
+        """Disable boost mode."""
+        try:
+            await self.coordinator.api.async_set_boost_mode(self.wallbox, False)
+            await self.coordinator.async_request_refresh()
+        except HagerApiError as err:
+            raise HomeAssistantError(str(err)) from err
+
 
 class HagerLockCableSwitch(HagerLocalEntity, SwitchEntity):
     """Toggle the cable lock persistence behavior."""
@@ -136,14 +144,6 @@ class HagerFallbackChargeSwitch(HagerLocalEntity, SwitchEntity):
         """Disallow charging when Flow is disconnected."""
         try:
             await self.coordinator.api.async_set_charge_in_fallback_mode(self.wallbox, False)
-            await self.coordinator.async_request_refresh()
-        except HagerApiError as err:
-            raise HomeAssistantError(str(err)) from err
-
-    async def async_turn_off(self, **kwargs) -> None:
-        """Disable boost mode."""
-        try:
-            await self.coordinator.api.async_set_boost_mode(self.wallbox, False)
             await self.coordinator.async_request_refresh()
         except HagerApiError as err:
             raise HomeAssistantError(str(err)) from err

@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.2.18
+## 0.2.19
 
 Expanded `witty solar` support with stable runtime controls and improved startup behavior.
 
@@ -20,6 +20,7 @@ Expanded `witty solar` support with stable runtime controls and improved startup
 - Hager reauthentication handling for `reAuthToken`
 - Witty Solar charge-mode payloads so `Solar minimum` and `Solar delayed` use the values accepted by Hager
 - EVSE update payloads so generic wallbox setting changes work reliably from Home Assistant
+- Switch handling so `BOOST` and `Flow disconnected` controls each keep the correct `turn_off` action
 
 ## 0.2.0
 
