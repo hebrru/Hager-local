@@ -6,7 +6,7 @@ from datetime import timedelta
 
 DOMAIN = "hager_local"
 
-PLATFORMS: tuple[str, ...] = ("sensor", "binary_sensor", "switch")
+PLATFORMS: tuple[str, ...] = ("sensor", "binary_sensor", "switch", "select", "number")
 
 CHARGING_MODE_BOOST = "Boost"
 CHARGING_MODE_SOLAR_ONLY = "Solar only"

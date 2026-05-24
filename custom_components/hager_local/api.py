@@ -112,6 +112,31 @@ def _extract_tokens_from_url(url: str) -> tuple[str | None, str | None]:
     return access_token, reauth_token
 
 
+def _as_number(value: Any) -> float | int | None:
+    """Convert a Hager number-like value to a numeric type."""
+    if value is None or value == "":
+        return None
+    if isinstance(value, (int, float)):
+        return value
+    if isinstance(value, str):
+        normalized = value.strip().replace(",", ".")
+        if not normalized:
+            return None
+        try:
+            return float(normalized)
+        except ValueError:
+            return None
+    return None
+
+
+def _sum_numeric_values(*values: Any) -> float | int | None:
+    """Return the sum of all numeric values when at least one is present."""
+    numbers = [number for value in values if (number := _as_number(value)) is not None]
+    if not numbers:
+        return None
+    return sum(numbers)
+
+
 def _default_cookie_path(path: str) -> str:
     """Return the RFC default-path for a cookie."""
     if not path or not path.startswith("/"):
@@ -343,6 +368,141 @@ def _normalize_charging_mode(value: str) -> str:
     return aliases[normalized]
 
 
+def _normalize_charge_strategy_configuration(
+    configuration: dict[str, Any] | None,
+) -> list[dict[str, int]]:
+    """Return a normalized 7-day Hager charge strategy configuration."""
+    rows = (configuration or {}).get("chargeStrategyConfiguration")
+    rows_by_weekday: dict[int, dict[str, Any]] = {}
+
+    if isinstance(rows, list):
+        for row in rows:
+            if not isinstance(row, dict):
+                continue
+            weekday = _as_number(row.get("chargeStrategyWeekday"))
+            if weekday is None:
+                continue
+            weekday_index = int(weekday)
+            if 0 <= weekday_index <= 6:
+                rows_by_weekday[weekday_index] = row
+
+    normalized_rows: list[dict[str, int]] = []
+    for weekday in range(7):
+        row = rows_by_weekday.get(weekday, {})
+        normalized_rows.append(
+            {
+                "chargeStrategyWeekday": weekday,
+                "chargeStrategyUnit": int(_as_number(row.get("chargeStrategyUnit")) or 0),
+                "chargeStrategyDirectChargeAmount": int(
+                    _as_number(row.get("chargeStrategyDirectChargeAmount")) or 0
+                ),
+                "chargeStrategyDelayedChargeAmount": int(
+                    _as_number(row.get("chargeStrategyDelayedChargeAmount")) or 0
+                ),
+                "chargeStrategyDelayedChargeTime": int(
+                    _as_number(row.get("chargeStrategyDelayedChargeTime")) or 0
+                ),
+            }
+        )
+
+    return normalized_rows
+
+
+def _normalize_parameter_list(configuration: dict[str, Any] | None) -> list[dict[str, int]]:
+    """Return a normalized 7-day Hager parameter list."""
+    rows = (configuration or {}).get("parameterList")
+    normalized_rows: list[dict[str, int]] = []
+
+    if isinstance(rows, list):
+        for row in rows[:7]:
+            if not isinstance(row, dict):
+                normalized_rows.append({"daytime": 0, "minEnergy": 0})
+                continue
+            normalized_rows.append(
+                {
+                    "daytime": int(_as_number(row.get("daytime")) or 0),
+                    "minEnergy": int(_as_number(row.get("minEnergy")) or 0),
+                }
+            )
+
+    while len(normalized_rows) < 7:
+        normalized_rows.append({"daytime": 0, "minEnergy": 0})
+
+    return normalized_rows
+
+
+def _normalize_sun_mode_parameter_list(parameters: dict[str, Any] | None) -> list[dict[str, int]]:
+    """Return a normalized 7-day live sun mode parameter list."""
+    sun_mode = (parameters or {}).get("sunMode")
+    if not isinstance(sun_mode, dict):
+        return []
+
+    rows = sun_mode.get("parameterList")
+    if not isinstance(rows, list):
+        return []
+
+    normalized_rows: list[dict[str, int]] = []
+    for row in rows[:7]:
+        if not isinstance(row, dict):
+            normalized_rows.append({"daytime": 0, "minEnergy": 0})
+            continue
+        normalized_rows.append(
+            {
+                "daytime": int(_as_number(row.get("daytime")) or 0),
+                "minEnergy": int(_as_number(row.get("minEnergy")) or 0),
+            }
+        )
+
+    while len(normalized_rows) < 7:
+        normalized_rows.append({"daytime": 0, "minEnergy": 0})
+
+    return normalized_rows
+
+
+def _charge_mode_from_configuration(configuration: dict[str, Any] | None) -> str | None:
+    """Map the wallbox configuration payload to a stable charge mode label."""
+    if not isinstance(configuration, dict) or not configuration:
+        return None
+
+    if configuration.get("chargeFull") is True:
+        return CHARGING_MODE_BOOST
+
+    active_charge_strategy = str(configuration.get("activeChargeStrategy") or "").strip().casefold()
+    rows = _normalize_charge_strategy_configuration(configuration)
+    params = _normalize_parameter_list(configuration)
+
+    has_minimum_energy = any(
+        row["chargeStrategyDirectChargeAmount"] > 0 or param["minEnergy"] > 0
+        for row, param in zip(rows, params, strict=True)
+    )
+    has_delayed_target = any(
+        row["chargeStrategyDelayedChargeTime"] > 0 or param["daytime"] > 0
+        for row, param in zip(rows, params, strict=True)
+    )
+
+    if active_charge_strategy == "deactivated":
+        return CHARGING_MODE_SOLAR_ONLY
+    if active_charge_strategy == "delayed":
+        if has_delayed_target:
+            return CHARGING_MODE_SOLAR_DELAYED
+        if has_minimum_energy:
+            return CHARGING_MODE_SOLAR_MINIMUM
+        return CHARGING_MODE_SOLAR_ONLY
+    return None
+
+
+def _first_positive_int(*values: Any) -> int:
+    """Return the first strictly positive integer value."""
+    for value in values:
+        number = _as_number(value)
+        if number is None:
+            continue
+        integer = int(number)
+        if integer > 0:
+            return integer
+    return 0
+
+
 def _charging_mode_from_parameters(parameters: dict[str, Any]) -> str | None:
     """Map the raw Hager sun mode payload to a stable charge mode label."""
     sun_mode = parameters.get("sunMode") or {}
@@ -352,6 +512,9 @@ def _charging_mode_from_parameters(parameters: dict[str, Any]) -> str | None:
     activated = sun_mode.get("activated")
     strategy = sun_mode.get("chargingStrategy")
     normalized_strategy = strategy.casefold() if isinstance(strategy, str) else None
+    parameter_list = _normalize_sun_mode_parameter_list(parameters)
+    has_minimum_energy = any(row["minEnergy"] > 0 for row in parameter_list)
+    has_delayed_target = any(row["daytime"] > 0 for row in parameter_list)
 
     if activated is False:
         return CHARGING_MODE_BOOST
@@ -360,6 +523,10 @@ def _charging_mode_from_parameters(parameters: dict[str, Any]) -> str | None:
     if normalized_strategy == SUN_MODE_IMMEDIATE.casefold():
         return CHARGING_MODE_SOLAR_MINIMUM
     if normalized_strategy == SUN_MODE_DELAYED.casefold():
+        if has_delayed_target:
+            return CHARGING_MODE_SOLAR_DELAYED
+        if has_minimum_energy:
+            return CHARGING_MODE_SOLAR_MINIMUM
         return CHARGING_MODE_SOLAR_DELAYED
     return None
 
@@ -378,7 +545,7 @@ def _build_sun_mode_payload(current_parameters: dict[str, Any], charging_mode: s
     if normalized_mode == CHARGING_MODE_SOLAR_ONLY:
         sun_mode["chargingStrategy"] = SUN_MODE_DISABLED
     elif normalized_mode == CHARGING_MODE_SOLAR_MINIMUM:
-        sun_mode["chargingStrategy"] = SUN_MODE_IMMEDIATE
+        sun_mode["chargingStrategy"] = SUN_MODE_DELAYED
     else:
         sun_mode["chargingStrategy"] = SUN_MODE_DELAYED
     return sun_mode
@@ -624,6 +791,7 @@ class HagerEmcSnapshot:
     emc_device_link: dict[str, Any]
     sub_devices: dict[str, Any]
     overview: dict[str, Any] | None
+    status: dict[str, Any] | None
 
     @property
     def installation_id(self) -> str:
@@ -685,14 +853,58 @@ class HagerEmcSnapshot:
 
     @property
     def last_status_timestamp(self) -> str | None:
-        timestamp = self.emc_device_link.get("lastKnownDeviceStatusTimestamp") or self.installation.get(
-            "lastKnownDeviceStatusTimestamp"
+        timestamp = (
+            (self.status or {}).get("time")
+            or self.emc_device_link.get("lastKnownDeviceStatusTimestamp")
+            or self.installation.get("lastKnownDeviceStatusTimestamp")
         )
         return str(timestamp) if timestamp else None
 
     @property
     def properties(self) -> dict[str, Any]:
         return self.overview or {}
+
+    @property
+    def live_status(self) -> dict[str, Any]:
+        return self.status or {}
+
+    @property
+    def grid_power(self) -> float | int | None:
+        direct_power = _sum_numeric_values(
+            self.live_status.get("POWER_ROOTLM_L1"),
+            self.live_status.get("POWER_ROOTLM_L2"),
+            self.live_status.get("POWER_ROOTLM_L3"),
+        )
+        if direct_power is not None:
+            return direct_power
+
+        powermeters = self.live_status.get("powermeters") or []
+        if isinstance(powermeters, list):
+            for powermeter in powermeters:
+                if not isinstance(powermeter, dict):
+                    continue
+                if str(powermeter.get("deviceType") or "").casefold() != "root":
+                    continue
+                root_power = _sum_numeric_values(
+                    powermeter.get("L1"),
+                    powermeter.get("L2"),
+                    powermeter.get("L3"),
+                )
+                if root_power is not None:
+                    return root_power
+
+        return _as_number((self.overview or {}).get("wallboxCurrentOverview", {}).get("NET"))
+
+    @property
+    def home_power(self) -> float | int | None:
+        direct_power = _sum_numeric_values(
+            self.live_status.get("POWER_C_L1"),
+            self.live_status.get("POWER_C_L2"),
+            self.live_status.get("POWER_C_L3"),
+        )
+        if direct_power is not None:
+            return direct_power
+        return None
 
     @property
     def monitoring(self) -> dict[str, Any]:
@@ -727,6 +939,7 @@ class HagerMeterSnapshot:
     emc_device_link: dict[str, Any]
     meter: dict[str, Any]
     overview: dict[str, Any] | None
+    status: dict[str, Any] | None
     meter_group_size: int
 
     @property
@@ -795,7 +1008,11 @@ class HagerMeterSnapshot:
 
     @property
     def last_status_timestamp(self) -> str | None:
-        timestamp = self.meter.get("lastKnownDeviceStatusTimestamp") or self.meter.get("updatedAt")
+        timestamp = (
+            (self.status or {}).get("time")
+            or self.meter.get("lastKnownDeviceStatusTimestamp")
+            or self.meter.get("updatedAt")
+        )
         return str(timestamp) if timestamp else None
 
     @property
@@ -817,12 +1034,49 @@ class HagerMeterSnapshot:
 
     @property
     def current_power(self) -> float | int | None:
-        if self.device_type != "PVExtern" or self.meter_group_size != 1:
+        if self.device_type != "PVExtern":
             return None
-        overview = self.properties.get("wallboxCurrentOverview") or {}
-        if not isinstance(overview, dict):
-            return None
-        return overview.get("SUN")
+
+        powermeters = (self.status or {}).get("powermeters") or []
+        if isinstance(powermeters, list):
+            meter_status = next(
+                (
+                    powermeter
+                    for powermeter in powermeters
+                    if isinstance(powermeter, dict)
+                    and (
+                        str(powermeter.get("deviceId") or "") == self.meter_id
+                        or str(powermeter.get("id") or "") == self.meter_id
+                    )
+                ),
+                None,
+            )
+            if isinstance(meter_status, dict):
+                phase_power = _sum_numeric_values(
+                    meter_status.get("L1"),
+                    meter_status.get("L2"),
+                    meter_status.get("L3"),
+                )
+                if phase_power is not None:
+                    return abs(phase_power)
+
+        # The Flow sub-device endpoints expose the PV meter identity but not a
+        # dedicated live power field. Using the wallbox SUN overview here was
+        # misleading because it represents the wallbox solar contribution, not
+        # the production meter value.
+        direct_candidates = (
+            self.meter.get("currentPower"),
+            self.meter.get("power"),
+            self.meter.get("activePower"),
+            self.type_parameters.get("currentPower"),
+            self.type_parameters.get("power"),
+            self.type_parameters.get("activePower"),
+        )
+        for candidate in direct_candidates:
+            if candidate is not None:
+                return candidate
+
+        return None
 
     @property
     def sort_key(self) -> tuple[str, str, str]:
@@ -890,8 +1144,109 @@ class HagerWallboxSnapshot:
         return self.evse.get("parameters") or {}
 
     @property
+    def sun_mode(self) -> dict[str, Any]:
+        sun_mode = self.evse_parameters.get("sunMode") or {}
+        return sun_mode if isinstance(sun_mode, dict) else {}
+
+    @property
     def charging_mode(self) -> str | None:
-        return _charging_mode_from_parameters(self.evse_parameters)
+        live_mode = _charging_mode_from_parameters(self.evse_parameters)
+        if live_mode is not None:
+            return live_mode
+        return _charge_mode_from_configuration(self.properties)
+
+    @property
+    def charge_strategy_configuration(self) -> list[dict[str, int]]:
+        return _normalize_charge_strategy_configuration(self.properties)
+
+    @property
+    def parameter_list(self) -> list[dict[str, int]]:
+        live_parameter_list = _normalize_sun_mode_parameter_list(self.evse_parameters)
+        if live_parameter_list:
+            return live_parameter_list
+        return _normalize_parameter_list(self.properties)
+
+    @property
+    def minimum_energy(self) -> int:
+        """Return the first configured minimum-energy target."""
+        minimum_energy = 0
+        for configuration_row, parameter_row in zip(
+            self.charge_strategy_configuration,
+            self.parameter_list,
+            strict=True,
+        ):
+            minimum_energy = max(
+                minimum_energy,
+                _first_positive_int(
+                    configuration_row.get("chargeStrategyDirectChargeAmount"),
+                    parameter_row.get("minEnergy"),
+                ),
+            )
+        return minimum_energy
+
+    @property
+    def delayed_target_time(self) -> int:
+        """Return the first configured delayed target time."""
+        delayed_target_time = 0
+        for configuration_row, parameter_row in zip(
+            self.charge_strategy_configuration,
+            self.parameter_list,
+            strict=True,
+        ):
+            delayed_target_time = max(
+                delayed_target_time,
+                _first_positive_int(
+                    configuration_row.get("chargeStrategyDelayedChargeTime"),
+                    parameter_row.get("daytime"),
+                ),
+            )
+        return delayed_target_time
+
+    @property
+    def authentication_mode(self) -> str | None:
+        value = self.evse_parameters.get("authenticationMode")
+        return str(value) if value else None
+
+    @property
+    def phases_management(self) -> str | None:
+        value = self.evse_parameters.get("phasesManagement")
+        return str(value) if value else None
+
+    @property
+    def lock_cable(self) -> bool | None:
+        value = self.evse_parameters.get("lockCable")
+        if value is None:
+            value = self.properties.get("cableLock")
+        if value is None:
+            return None
+        return bool(value)
+
+    @property
+    def charge_in_fallback_mode_allowed(self) -> bool | None:
+        value = self.evse_parameters.get("chargeInFallbackModeAllowed")
+        if value is None:
+            value = self.properties.get("chargeInFallbackModeAllowed")
+        if value is None:
+            return None
+        return bool(value)
+
+    @property
+    def led_intensity(self) -> int | None:
+        value = _as_number(self.evse_parameters.get("ledIntensity"))
+        if value is None:
+            value = _as_number(self.properties.get("ledIntensity"))
+        if value is None:
+            return None
+        return int(value)
+
+    @property
+    def solar_holding_time(self) -> int | None:
+        value = _as_number(self.sun_mode.get("holdingTimeInMin"))
+        if value is None:
+            value = _as_number(self.properties.get("chargeStopHysteresis"))
+        if value is None:
+            return None
+        return int(value)
 
     @property
     def properties(self) -> dict[str, Any]:
@@ -967,6 +1322,8 @@ class HagerApiClient:
         self._entry = entry
         self._session = async_get_clientsession(hass)
         self._refresh_lock = asyncio.Lock()
+        self._wallbox_configuration_cache: dict[tuple[str, str], dict[str, Any]] = {}
+        self._wallbox_charge_strategy_memory: dict[str, dict[str, list[dict[str, int]]]] = {}
 
     @property
     def email(self) -> str:
@@ -989,6 +1346,20 @@ class HagerApiClient:
     async def async_validate_connection(self) -> HagerAccountSnapshot:
         return await self.async_get_overview()
 
+    def prime_cached_snapshot(self, snapshot: HagerAccountSnapshot | None) -> None:
+        """Prime the live configuration cache from a stored snapshot."""
+        if snapshot is None:
+            return
+
+        for wallbox in snapshot.wallboxes.values():
+            if wallbox.configuration is None:
+                continue
+            self._wallbox_configuration_cache[
+                (wallbox.emc_hardware_id, wallbox.configuration_id)
+            ] = dict(wallbox.configuration)
+            self._remember_wallbox_charge_strategy(wallbox)
+            self._hydrate_wallbox_sun_mode_profile(wallbox)
+
     async def async_get_overview(self) -> HagerAccountSnapshot:
         installations = await self._get_installations()
         installation_map = {str(item["id"]): item for item in installations}
@@ -1009,12 +1380,32 @@ class HagerApiClient:
                 for installation, emc in sub_device_requests
             ]
         )
+        storage_status_results = await asyncio.gather(
+            *[
+                self._get_storage_status(str(emc.get("deviceId")))
+                for installation, emc in sub_device_requests
+            ],
+            return_exceptions=True,
+        )
 
         emcs: list[HagerEmcSnapshot] = []
         meters: list[HagerMeterSnapshot] = []
         wallboxes: list[HagerWallboxSnapshot] = []
 
-        for (installation, emc), sub_devices in zip(sub_device_requests, sub_devices_results, strict=True):
+        for index, ((installation, emc), sub_devices) in enumerate(
+            zip(sub_device_requests, sub_devices_results, strict=True)
+        ):
+            storage_status_result = storage_status_results[index]
+            if isinstance(storage_status_result, Exception):
+                LOGGER.debug(
+                    "Unable to load live storage status for %s: %s",
+                    emc.get("deviceId"),
+                    storage_status_result,
+                )
+                storage_status = None
+            else:
+                storage_status = storage_status_result
+
             monitoring = sub_devices.get("monitoring") or {}
             meter_devices = monitoring.get("meters") if isinstance(monitoring, dict) else []
             if not isinstance(meter_devices, list):
@@ -1027,7 +1418,7 @@ class HagerApiClient:
                 if isinstance(device, dict) and device.get("type") == "Evse"
             ]
 
-            configurations = await asyncio.gather(
+            raw_configurations = await asyncio.gather(
                 *[
                     self._get_wallbox_configuration(
                         str(emc.get("deviceId")),
@@ -1036,6 +1427,26 @@ class HagerApiClient:
                     for evse in evses
                 ]
             )
+
+            configurations: list[dict[str, Any] | None] = []
+            for evse, configuration in zip(evses, raw_configurations, strict=True):
+                cache_key = (str(emc.get("deviceId")), _configuration_id_from_evse(evse))
+                if isinstance(configuration, dict):
+                    self._wallbox_configuration_cache[cache_key] = dict(configuration)
+                    configurations.append(configuration)
+                    continue
+
+                cached_configuration = self._wallbox_configuration_cache.get(cache_key)
+                if cached_configuration is not None:
+                    LOGGER.debug(
+                        "Reusing cached Hager wallbox configuration for %s/%s",
+                        cache_key[0],
+                        cache_key[1],
+                    )
+                    configurations.append(dict(cached_configuration))
+                    continue
+
+                configurations.append(None)
 
             live_overview = next(
                 (configuration for configuration in configurations if isinstance(configuration, dict)),
@@ -1048,6 +1459,7 @@ class HagerApiClient:
                     emc_device_link=emc,
                     sub_devices=sub_devices,
                     overview=live_overview,
+                    status=storage_status,
                 )
             )
 
@@ -1060,19 +1472,21 @@ class HagerApiClient:
                         emc_device_link=emc,
                         meter=meter,
                         overview=live_overview,
+                        status=storage_status,
                         meter_group_size=len(meter_devices),
                     )
                 )
 
             for evse, configuration in zip(evses, configurations, strict=True):
-                wallboxes.append(
-                    HagerWallboxSnapshot(
-                        installation=installation,
-                        emc_device_link=emc,
-                        evse=evse,
-                        configuration=configuration if isinstance(configuration, dict) else None,
-                    )
+                wallbox = HagerWallboxSnapshot(
+                    installation=installation,
+                    emc_device_link=emc,
+                    evse=evse,
+                    configuration=configuration if isinstance(configuration, dict) else None,
                 )
+                self._remember_wallbox_charge_strategy(wallbox)
+                self._hydrate_wallbox_sun_mode_profile(wallbox)
+                wallboxes.append(wallbox)
 
         emcs.sort(key=lambda item: item.sort_key)
         meters.sort(key=lambda item: item.sort_key)
@@ -1089,27 +1503,206 @@ class HagerApiClient:
         )
 
     async def async_set_charging_mode(self, wallbox: HagerWallboxSnapshot, charging_mode: str) -> None:
-        payload = self._build_evse_update_payload(wallbox, charging_mode)
-        await self._request_json(
-            "put",
-            (
-                f"{INSTALLATIONS_BASE_URL}/installations/{wallbox.installation_id}"
-                f"/device-links/{wallbox.emc_link_id}/sub/controlled/{wallbox.evse_id}"
-            ),
-            json_payload=payload,
-            expect_json=False,
+        normalized_mode = _normalize_charging_mode(charging_mode)
+        self._remember_wallbox_charge_strategy(wallbox)
+
+        if normalized_mode == CHARGING_MODE_BOOST:
+            await self._async_update_wallbox_settings(
+                wallbox,
+                sun_mode_updates={
+                    "activated": False,
+                    "chargingStrategy": SUN_MODE_DISABLED,
+                    "parameterList": [],
+                },
+            )
+            return
+
+        if normalized_mode == CHARGING_MODE_SOLAR_ONLY:
+            await self._async_update_wallbox_settings(
+                wallbox,
+                sun_mode_updates={
+                    "activated": True,
+                    "chargingStrategy": SUN_MODE_DISABLED,
+                    "parameterList": [],
+                },
+            )
+            return
+
+        parameter_rows = wallbox.parameter_list
+        remembered = self._wallbox_charge_strategy_memory.get(wallbox.device_id) or {}
+        remembered_params = remembered.get("parameterList", [])
+        updated_parameter_rows: list[dict[str, str]] = []
+        has_minimum_energy = False
+        has_delayed_target = False
+
+        for weekday in range(7):
+            parameter_row = parameter_rows[weekday]
+            remembered_param = remembered_params[weekday] if weekday < len(remembered_params) else {}
+            minimum_energy = _first_positive_int(
+                parameter_row.get("minEnergy"),
+                remembered_param.get("minEnergy"),
+            )
+            delayed_target = _first_positive_int(
+                parameter_row.get("daytime"),
+                remembered_param.get("daytime"),
+            )
+
+            if minimum_energy > 0:
+                has_minimum_energy = True
+            if delayed_target > 0:
+                has_delayed_target = True
+
+            updated_parameter_rows.append(
+                {
+                    "daytime": str(0 if normalized_mode == CHARGING_MODE_SOLAR_MINIMUM else delayed_target),
+                    "minEnergy": str(minimum_energy),
+                }
+            )
+
+        if not has_minimum_energy:
+            raise HagerApiError(
+                "Configure a non-zero minimum energy in Hager first, then retry from Home Assistant"
+            )
+
+        if normalized_mode == CHARGING_MODE_SOLAR_DELAYED and not has_delayed_target:
+            raise HagerApiError(
+                "Configure a delayed target time in Hager first, then retry from Home Assistant"
+            )
+
+        await self._async_update_wallbox_settings(
+            wallbox,
+            sun_mode_updates={
+                "activated": True,
+                "chargingStrategy": SUN_MODE_DELAYED,
+                "parameterList": updated_parameter_rows,
+            },
+        )
+
+    async def async_set_lock_cable(self, wallbox: HagerWallboxSnapshot, enabled: bool) -> None:
+        await self._async_update_wallbox_settings(
+            wallbox,
+            parameter_updates={"lockCable": enabled},
+        )
+
+    async def async_set_charge_in_fallback_mode(
+        self,
+        wallbox: HagerWallboxSnapshot,
+        allowed: bool,
+    ) -> None:
+        await self._async_update_wallbox_settings(
+            wallbox,
+            parameter_updates={"chargeInFallbackModeAllowed": allowed},
+        )
+
+    async def async_set_led_intensity(self, wallbox: HagerWallboxSnapshot, intensity: float) -> None:
+        await self._async_update_wallbox_settings(
+            wallbox,
+            parameter_updates={"ledIntensity": max(0, min(100, int(round(intensity))))},
+        )
+
+    async def async_set_solar_holding_time(
+        self,
+        wallbox: HagerWallboxSnapshot,
+        minutes: float,
+    ) -> None:
+        await self._async_update_wallbox_settings(
+            wallbox,
+            sun_mode_updates={"holdingTimeInMin": max(0, int(round(minutes)))},
         )
 
     async def async_set_boost_mode(self, wallbox: HagerWallboxSnapshot, enabled: bool) -> None:
-        await self._request_json(
-            "put",
-            f"{E3DC_AUTH_BASE_URL}/wallboxes/{wallbox.emc_hardware_id}/{wallbox.configuration_id}/configuration",
-            json_payload={"chargeFull": enabled},
-            expect_json=False,
-        )
+        await self._async_update_wallbox_configuration(wallbox, {"chargeFull": enabled})
 
     async def async_set_charge_strategy(self, wallbox: HagerWallboxSnapshot, charging_strategy: str) -> None:
         await self.async_set_charging_mode(wallbox, charging_strategy)
+
+    def _remember_wallbox_charge_strategy(self, wallbox: HagerWallboxSnapshot) -> None:
+        """Keep the last delayed target profile so switching back stays possible."""
+        rows = wallbox.charge_strategy_configuration
+        params = wallbox.parameter_list
+        existing = self._wallbox_charge_strategy_memory.get(wallbox.device_id) or {}
+        existing_rows = existing.get("chargeStrategyConfiguration", [])
+        existing_params = existing.get("parameterList", [])
+
+        merged_rows: list[dict[str, int]] = []
+        merged_params: list[dict[str, int]] = []
+        has_meaningful_profile = False
+
+        for weekday, (row, param) in enumerate(zip(rows, params, strict=True)):
+            existing_row = existing_rows[weekday] if weekday < len(existing_rows) else {}
+            existing_param = existing_params[weekday] if weekday < len(existing_params) else {}
+
+            direct_amount = _first_positive_int(
+                param.get("minEnergy"),
+                row.get("chargeStrategyDirectChargeAmount"),
+                existing_param.get("minEnergy"),
+                existing_row.get("chargeStrategyDirectChargeAmount"),
+            )
+            delayed_time = _first_positive_int(
+                param.get("daytime"),
+                row.get("chargeStrategyDelayedChargeTime"),
+                existing_param.get("daytime"),
+                existing_row.get("chargeStrategyDelayedChargeTime"),
+            )
+
+            merged_rows.append(
+                {
+                    "chargeStrategyWeekday": weekday,
+                    "chargeStrategyUnit": int(
+                        row.get("chargeStrategyUnit")
+                        or existing_row.get("chargeStrategyUnit")
+                        or 0
+                    ),
+                    "chargeStrategyDirectChargeAmount": direct_amount,
+                    "chargeStrategyDelayedChargeAmount": 0,
+                    "chargeStrategyDelayedChargeTime": delayed_time,
+                }
+            )
+            merged_params.append(
+                {
+                    "daytime": delayed_time,
+                    "minEnergy": direct_amount,
+                }
+            )
+
+            if direct_amount > 0 or delayed_time > 0:
+                has_meaningful_profile = True
+
+        if not has_meaningful_profile:
+            return
+
+        self._wallbox_charge_strategy_memory[wallbox.device_id] = {
+            "chargeStrategyConfiguration": merged_rows,
+            "parameterList": merged_params,
+        }
+
+    def _hydrate_wallbox_sun_mode_profile(self, wallbox: HagerWallboxSnapshot) -> None:
+        """Reinject the remembered delayed profile when Hager omits it in live sun mode."""
+        remembered = self._wallbox_charge_strategy_memory.get(wallbox.device_id) or {}
+        remembered_params = remembered.get("parameterList", [])
+        if not remembered_params:
+            return
+
+        evse_parameters = wallbox.evse.setdefault("parameters", {})
+        if not isinstance(evse_parameters, dict):
+            return
+
+        sun_mode = evse_parameters.setdefault("sunMode", {})
+        if not isinstance(sun_mode, dict):
+            return
+
+        current_parameter_list = sun_mode.get("parameterList")
+        if isinstance(current_parameter_list, list) and current_parameter_list:
+            return
+
+        sun_mode["parameterList"] = [
+            {
+                "daytime": str(int(row.get("daytime") or 0)),
+                "minEnergy": str(int(row.get("minEnergy") or 0)),
+            }
+            for row in remembered_params
+            if isinstance(row, dict)
+        ]
 
     async def async_get_access_token(self) -> str:
         access_token = self.access_token
@@ -1136,7 +1729,7 @@ class HagerApiClient:
                     async with self._session.post(
                         f"{E3DC_AUTH_BASE_URL}/auth-saml/re-auth",
                         headers=headers,
-                        json={CONF_REAUTH_TOKEN: reauth_token},
+                        json={"reAuthToken": reauth_token},
                     ) as response:
                         if response.status == 401:
                             raise HagerAuthenticationError("Hager rejected the re-auth token")
@@ -1241,6 +1834,51 @@ class HagerApiClient:
             raise HagerApiError("Unexpected response shape from the Hager wallbox API")
         return payload
 
+    async def _get_storage_status(self, emc_hardware_id: str) -> dict[str, Any] | None:
+        """Return the live storage status when the endpoint is available."""
+        access_token = await self.async_get_access_token()
+        headers = {
+            "Accept": "application/json",
+            "Authorization": f"Bearer {access_token}",
+            "User-Agent": USER_AGENT,
+        }
+        url = f"{E3DC_AUTH_BASE_URL}/storages/{emc_hardware_id}/status"
+
+        try:
+            async with self._session.get(url, headers=headers) as response:
+                if response.status in (400, 403, 404):
+                    await response.read()
+                    return None
+
+                if response.status == 401:
+                    access_token = await self.async_refresh_access_token()
+                    headers["Authorization"] = f"Bearer {access_token}"
+                    async with self._session.get(url, headers=headers) as retry_response:
+                        if retry_response.status in (400, 403, 404):
+                            await retry_response.read()
+                            return None
+                        if retry_response.status >= 400:
+                            body = await retry_response.text()
+                            raise HagerApiError(
+                                _build_http_error_message(retry_response.status, url, body)
+                            )
+                        payload = await retry_response.json(content_type=None)
+                else:
+                    if response.status >= 400:
+                        body = await response.text()
+                        raise HagerApiError(_build_http_error_message(response.status, url, body))
+                    payload = await response.json(content_type=None)
+        except ClientError as err:
+            raise HagerApiConnectionError(
+                f"Unable to reach the Hager storage status API for {emc_hardware_id}"
+            ) from err
+
+        if payload is None:
+            return None
+        if not isinstance(payload, dict):
+            raise HagerApiError("Unexpected response shape from the Hager storage status API")
+        return payload
+
     @staticmethod
     def _select_active_emc(device_links: list[dict[str, Any]]) -> dict[str, Any] | None:
         active_links = [
@@ -1254,10 +1892,32 @@ class HagerApiClient:
     def _build_evse_update_payload(
         self,
         wallbox: HagerWallboxSnapshot,
-        charging_mode: str,
+        charging_mode: str | None = None,
+        *,
+        parameter_updates: dict[str, Any] | None = None,
+        sun_mode_updates: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
         parameters = wallbox.evse_parameters
-        sun_mode = _build_sun_mode_payload(parameters, charging_mode)
+        if charging_mode is not None:
+            sun_mode = _build_sun_mode_payload(parameters, charging_mode)
+        else:
+            sun_mode = dict(parameters.get("sunMode") or {})
+            if sun_mode_updates:
+                sun_mode.update(sun_mode_updates)
+        if isinstance(sun_mode, dict) and sun_mode.get("parameterList") is None:
+            # Hager rejects null here for generic EVSE updates, but accepts [].
+            sun_mode["parameterList"] = []
+        if (
+            isinstance(sun_mode, dict)
+            and str(sun_mode.get("chargingStrategy") or "").casefold() == SUN_MODE_DISABLED.casefold()
+            and isinstance(sun_mode.get("parameterList"), list)
+            and sun_mode["parameterList"]
+            and charging_mode is None
+        ):
+            # The remembered solar profile is useful for the mode selector, but Hager
+            # rejects generic EVSE updates when Solar only is sent with a non-empty
+            # parameterList. Keep the memory in HA, but send an empty list to Hager.
+            sun_mode["parameterList"] = []
 
         parameter_keys = [
             "protection",
@@ -1278,7 +1938,10 @@ class HagerApiClient:
         ]
 
         payload_parameters = {key: parameters.get(key) for key in parameter_keys if key in parameters}
-        payload_parameters["sunMode"] = sun_mode
+        if parameter_updates:
+            payload_parameters.update(parameter_updates)
+        if sun_mode or "sunMode" in parameters:
+            payload_parameters["sunMode"] = sun_mode
 
         payload: dict[str, Any] = {
             "deviceName": wallbox.evse.get("deviceName") or wallbox.display_name,
@@ -1288,19 +1951,77 @@ class HagerApiClient:
         if wallbox.media == "ModbusTCP":
             evse_sub_type_parameters = wallbox.evse.get("evseSubTypeParameters") or {}
             payload["evseSubTypeParameters"] = {
-                key: evse_sub_type_parameters.get(key)
-                for key in (
-                    "ocppActivation",
-                    "ocppServerAddress",
-                    "ocppId",
-                    "ocppAuthType",
-                    "deviceReference",
-                    "wbType",
-                )
-                if key in evse_sub_type_parameters
+                "deviceReference": evse_sub_type_parameters.get("deviceReference") or "",
+                "ocppActivation": bool(evse_sub_type_parameters.get("ocppActivation", False)),
+                "ocppAuthType": evse_sub_type_parameters.get("ocppAuthType") or "No",
+                "ocppId": evse_sub_type_parameters.get("ocppId")
+                or evse_sub_type_parameters.get("wallboxId")
+                or wallbox.wallbox_id,
+                "ocppServerAddress": evse_sub_type_parameters.get("ocppServerAddress") or "wss://",
+                "wbType": str(
+                    evse_sub_type_parameters.get("wbType")
+                    or wallbox.properties.get("wallboxType")
+                    or ""
+                ),
             }
 
         return payload
+
+    async def _async_update_wallbox_settings(
+        self,
+        wallbox: HagerWallboxSnapshot,
+        charging_mode: str | None = None,
+        *,
+        parameter_updates: dict[str, Any] | None = None,
+        sun_mode_updates: dict[str, Any] | None = None,
+    ) -> None:
+        payload = self._build_evse_update_payload(
+            wallbox,
+            charging_mode,
+            parameter_updates=parameter_updates,
+            sun_mode_updates=sun_mode_updates,
+        )
+        await self._request_json(
+            "put",
+            (
+                f"{INSTALLATIONS_BASE_URL}/installations/{wallbox.installation_id}"
+                f"/device-links/{wallbox.emc_link_id}/sub/controlled/{wallbox.evse_id}"
+            ),
+            json_payload=payload,
+            expect_json=False,
+        )
+
+    async def _async_update_wallbox_configuration(
+        self,
+        wallbox: HagerWallboxSnapshot,
+        updates: dict[str, Any],
+    ) -> None:
+        """Update the live wallbox configuration using the supported E3/DC endpoint."""
+        await self._request_json(
+            "put",
+            f"{E3DC_AUTH_BASE_URL}/wallboxes/{wallbox.emc_hardware_id}/{wallbox.configuration_id}/configuration",
+            json_payload=updates,
+            expect_json=False,
+        )
+
+        cache_key = (wallbox.emc_hardware_id, wallbox.configuration_id)
+        fresh_configuration = await self._get_wallbox_configuration(
+            wallbox.emc_hardware_id,
+            wallbox.configuration_id,
+        )
+        if isinstance(fresh_configuration, dict):
+            self._wallbox_configuration_cache[cache_key] = dict(fresh_configuration)
+            wallbox.configuration = dict(fresh_configuration)
+            self._remember_wallbox_charge_strategy(wallbox)
+            return
+
+        cached_configuration = dict(
+            self._wallbox_configuration_cache.get(cache_key) or wallbox.configuration or {}
+        )
+        cached_configuration.update(updates)
+        self._wallbox_configuration_cache[cache_key] = cached_configuration
+        wallbox.configuration = dict(cached_configuration)
+        self._remember_wallbox_charge_strategy(wallbox)
 
     async def _request_json(
         self,

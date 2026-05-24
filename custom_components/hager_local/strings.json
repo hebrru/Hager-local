@@ -55,6 +55,18 @@
       "charging_mode": {
         "name": "Charging mode"
       },
+      "led_intensity_level": {
+        "name": "LED intensity"
+      },
+      "solar_holding_time_minutes": {
+        "name": "Solar holding time"
+      },
+      "authentication_mode": {
+        "name": "Access mode"
+      },
+      "phases_management": {
+        "name": "Phase management"
+      },
       "total_power": {
         "name": "Charging power"
       },
@@ -63,6 +75,9 @@
       },
       "grid_power": {
         "name": "Grid power"
+      },
+      "home_power": {
+        "name": "Home power"
       },
       "total_energy": {
         "name": "Energy counter"
@@ -123,6 +138,12 @@
       "online": {
         "name": "Online"
       },
+      "cable_locked_state": {
+        "name": "Cable locked"
+      },
+      "fallback_charge_allowed_state": {
+        "name": "Charge if Flow is disconnected"
+      },
       "charging": {
         "name": "Charging"
       },
@@ -138,6 +159,14 @@
         "name": "Charging mode"
       }
     },
+    "number": {
+      "led_intensity": {
+        "name": "LED intensity"
+      },
+      "solar_holding_time": {
+        "name": "Solar holding time"
+      }
+    },
     "button": {
       "boost": {
         "name": "Boost"
@@ -146,6 +175,12 @@
     "switch": {
       "boost": {
         "name": "Boost"
+      },
+      "lock_cable": {
+        "name": "Always lock cable"
+      },
+      "charge_in_fallback_mode": {
+        "name": "Continue charging if Flow is disconnected"
       }
     }
   }

@@ -13,9 +13,14 @@ This project is focused on `witty solar` control and monitoring from Home Assist
 - A dedicated device for the Hager `witty solar` charger
 - A dedicated device for the Hager `Flow EMC`
 - A dedicated device for the photovoltaic meter when exposed by Hager
-- `BOOST` control from Home Assistant
+- UI-based config flow for Home Assistant
 - Charger status, online state, car connected state, current charging state
-- Charging power, solar power, grid power and energy counters when available
+- Charging power, solar power, grid power, home power and energy counters when available
+- `BOOST` control from Home Assistant
+- Solar charging mode selection:
+  `Boost`, `Solar only`, `Solar minimum`, `Solar delayed`
+- Wallbox settings from Home Assistant:
+  cable lock, fallback charging, LED intensity and solar holding time
 
 ## HACS Installation
 
@@ -34,6 +39,7 @@ You can also use the badge at the top of this README to open the repository dire
 - This integration is intended for Hager `witty solar` setups linked to a `Flow EMC`.
 - The repository already includes `hacs.json` for HACS custom-repository installs.
 - The integration uses the `myHager / flow` web account flow instead of the Hager developer API.
+- The integration keeps a local cache to make startup and temporary Hager API failures more robust.
 
 ## Support
 

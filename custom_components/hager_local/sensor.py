@@ -88,6 +88,34 @@ SENSOR_DESCRIPTIONS: tuple[HagerSensorDescription, ...] = (
         value_fn=lambda wallbox: _as_str(wallbox.charging_mode),
     ),
     HagerSensorDescription(
+        key="led_intensity_level",
+        translation_key="led_intensity_level",
+        native_unit_of_measurement="%",
+        state_class=SensorStateClass.MEASUREMENT,
+        suggested_display_precision=0,
+        value_fn=lambda wallbox: _as_float(wallbox.led_intensity),
+    ),
+    HagerSensorDescription(
+        key="solar_holding_time_minutes",
+        translation_key="solar_holding_time_minutes",
+        native_unit_of_measurement="min",
+        state_class=SensorStateClass.MEASUREMENT,
+        suggested_display_precision=0,
+        value_fn=lambda wallbox: _as_float(wallbox.solar_holding_time),
+    ),
+    HagerSensorDescription(
+        key="authentication_mode",
+        translation_key="authentication_mode",
+        entity_category=EntityCategory.DIAGNOSTIC,
+        value_fn=lambda wallbox: _as_str(wallbox.authentication_mode),
+    ),
+    HagerSensorDescription(
+        key="phases_management",
+        translation_key="phases_management",
+        entity_category=EntityCategory.DIAGNOSTIC,
+        value_fn=lambda wallbox: _as_str(wallbox.phases_management),
+    ),
+    HagerSensorDescription(
         key="total_power",
         translation_key="total_power",
         native_unit_of_measurement=UnitOfPower.WATT,
@@ -206,9 +234,16 @@ EMC_SENSOR_DESCRIPTIONS: tuple[HagerEmcSensorDescription, ...] = (
         device_class=SensorDeviceClass.POWER,
         state_class=SensorStateClass.MEASUREMENT,
         suggested_display_precision=0,
-        value_fn=lambda emc: _as_float(
-            nested_get(emc.properties, "wallboxCurrentOverview", "NET")
-        ),
+        value_fn=lambda emc: _as_float(emc.grid_power),
+    ),
+    HagerEmcSensorDescription(
+        key="home_power",
+        translation_key="home_power",
+        native_unit_of_measurement=UnitOfPower.WATT,
+        device_class=SensorDeviceClass.POWER,
+        state_class=SensorStateClass.MEASUREMENT,
+        suggested_display_precision=0,
+        value_fn=lambda emc: _as_float(emc.home_power),
     ),
     HagerEmcSensorDescription(
         key="device_status",
