@@ -1,7 +1,11 @@
-# Original independent integration artwork
+# Identité graphique indépendante
 
-These original pictograms were created for the community integration. They do not use the manufacturer's logo or official visual identity.
+Projet personnel indépendant, non affilié aux fabricants.
 
-The integration is independent and is not affiliated with, sponsored by, or endorsed by the manufacturers named in its title. Product names identify compatible equipment, not an affiliation.
+Les icônes de ce dossier sont des créations originales générées avec une IA, puis adaptées en tracés vectoriels pour ce projet le 12 septembre 2026. Elles ne sont pas des logos officiels Hager, Tesla ou Zendure et ne reprennent pas les anciens pictogrammes de la bibliothèque MDI.
 
-`original.svg` is the editable vector source. The PNG files have transparent backgrounds and are provided as icons and logos in 256 px and 512 px, including light/dark theme filenames. No remote image service is required to display them.
+Les noms de fabricants éventuellement affichés ailleurs servent à identifier les appareils et leur compatibilité, pas une affiliation ou une certification.
+
+Source graphique modifiable : source.svg. PNG transparents 256 et 512 pixels ; variantes claires et sombres. Aucun fichier de police, élément distant ou script n’est incorporé aux images.
+
+Les images remplacées ont été sauvegardées hors des dossiers actifs de Home Assistant.

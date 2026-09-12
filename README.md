@@ -1,5 +1,11 @@
 # Hager Local
 
+<p align="left"><img src="custom_components/hager_local/brand/icon@2x.png" alt="Icône indépendante Hager Local" width="96" height="96"></p>
+
+> **Projet communautaire indépendant, non affilié au fabricant.** Cette icône est une création originale pour cette intégration, pas un logo officiel. Les noms des fabricants désignent uniquement les appareils compatibles.
+
+[Sources et variantes du logo](custom_components/hager_local/brand/) · [Publication 0.2.20b5](https://github.com/hebrru/Hager-local/releases/tag/0.2.20b5)
+
 [![Open your Home Assistant instance and open this repository inside HACS](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?category=Integration&owner=hebrru&repository=Hager-local)
 
 Home Assistant custom integration to monitor and control a Hager `witty solar` charger through a Hager `Flow EMC` installation and a `myHager / flow` account.
