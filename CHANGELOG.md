@@ -1,5 +1,30 @@
 # Changelog
 
+## 0.2.20b2 - 2026-09-12 (prerelease)
+
+### Added
+
+- 14 read-only sensors: per-phase power/energy (6), installer limits (2),
+  configured solar ratio, configured fallback current, reference voltage,
+  key-position code, charging summary and received-or-cached weekly profile.
+- Eight reported diagnostic flags: connection, working state, pending current,
+  RFID reader, authentication requirement, phase switching, physical cable lock
+  and charge cancellation.
+- Privacy-minimized Home Assistant diagnostics with explicit field allow-lists.
+- Offline tests covering malformed data, privacy, entity factories and labels.
+- English/French translations and a public feature/limitation guide.
+
+### Behaviour and limitations
+
+- No additional network requests or new configuration writes. Existing entities
+  and controls keep their unique IDs and behaviour.
+- Missing/invalid readings remain unknown, not zero or false. Inactive phase
+  L2/L3 measurements are disabled by default on single-phase installations.
+- A received/cached profile is explicitly not a confirmed live schedule.
+- Advanced setting writes, schedule editing, session-history retrieval,
+  WebSocket and direct Modbus control are not part of this release.
+- Current-command hardware validation remains pending; stable 0.2.19 is retained.
+
 ## 0.2.20b1 - 2026-09-12 (prerelease)
 
 ### Added

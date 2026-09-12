@@ -112,7 +112,15 @@ async def async_setup_entry(
     async_add_entities: AddEntitiesCallback,
 ) -> None:
     """Set up Hager binary sensors."""
+    from .telemetry import telemetry_binary_sensors
+
     coordinator = entry.runtime_data.coordinator
+    entry.async_on_unload(
+        async_add_wallbox_entities(
+            coordinator, async_add_entities,
+            lambda wallbox_key: telemetry_binary_sensors(coordinator, wallbox_key),
+        )
+    )
     entry.async_on_unload(
         async_add_wallbox_entities(
             coordinator,

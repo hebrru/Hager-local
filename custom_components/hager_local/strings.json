@@ -52,6 +52,20 @@
   },
   "entity": {
     "sensor": {
+      "installer_upper_current": {"name": "Installer upper current limit"},
+      "installer_lower_current": {"name": "Installer lower current limit"},
+      "solar_ratio_configured": {"name": "Configured solar ratio"},
+      "fallback_current_configured": {"name": "Configured fallback current"},
+      "reference_voltage": {"name": "Reference voltage (diagnostic)"},
+      "key_position_code": {"name": "Key position code"},
+      "phase_l1_power": {"name": "Phase L1 power"},
+      "phase_l2_power": {"name": "Phase L2 power"},
+      "phase_l3_power": {"name": "Phase L3 power"},
+      "phase_l1_energy": {"name": "Phase L1 energy"},
+      "phase_l2_energy": {"name": "Phase L2 energy"},
+      "phase_l3_energy": {"name": "Phase L3 energy"},
+      "charge_summary": {"name": "Charging summary", "state": {"offline": "Offline", "fault": "Fault reported", "charging": "Charging", "connected_waiting": "Connected, not charging", "disconnected": "Vehicle disconnected", "unknown": "Unknown"}},
+      "profile_received": {"name": "Received or cached charging profile", "state": {"inactive": "Inactive", "solar_only": "Solar only", "minimum": "Minimum energy", "delayed": "Delayed", "unknown": "Unknown"}},
       "charging_mode": {
         "name": "Charging mode"
       },
@@ -135,6 +149,14 @@
       }
     },
     "binary_sensor": {
+      "device_connection_reported": {"name": "Device connection reported"},
+      "device_working_reported": {"name": "Device working reported"},
+      "current_limit_pending": {"name": "Current limit awaiting confirmation"},
+      "rfid_reader_reported": {"name": "RFID reader reported"},
+      "authentication_required_reported": {"name": "Authentication required reported"},
+      "automatic_phase_switch_reported": {"name": "Automatic phase switching reported"},
+      "physical_cable_lock_reported": {"name": "Physical cable lock reported"},
+      "charge_cancelled_reported": {"name": "Charging cancelled reported"},
       "online": {
         "name": "Online"
       },

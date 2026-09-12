@@ -52,6 +52,20 @@
   },
   "entity": {
     "sensor": {
+      "installer_upper_current": {"name": "Limite supérieure installateur"},
+      "installer_lower_current": {"name": "Limite inférieure installateur"},
+      "solar_ratio_configured": {"name": "Ratio solaire configuré"},
+      "fallback_current_configured": {"name": "Courant de secours configuré"},
+      "reference_voltage": {"name": "Tension de référence (diagnostic)"},
+      "key_position_code": {"name": "Code position de la clé"},
+      "phase_l1_power": {"name": "Puissance phase L1"},
+      "phase_l2_power": {"name": "Puissance phase L2"},
+      "phase_l3_power": {"name": "Puissance phase L3"},
+      "phase_l1_energy": {"name": "Énergie phase L1"},
+      "phase_l2_energy": {"name": "Énergie phase L2"},
+      "phase_l3_energy": {"name": "Énergie phase L3"},
+      "charge_summary": {"name": "État de charge résumé", "state": {"offline": "Hors ligne", "fault": "Défaut signalé", "charging": "En charge", "connected_waiting": "Véhicule branché, sans charge", "disconnected": "Véhicule débranché", "unknown": "Inconnu"}},
+      "profile_received": {"name": "Profil de recharge reçu ou mémorisé", "state": {"inactive": "Inactif", "solar_only": "Solaire uniquement", "minimum": "Énergie minimale", "delayed": "Différé", "unknown": "Inconnu"}},
       "charging_mode": {
         "name": "Mode de charge"
       },
@@ -135,6 +149,14 @@
       }
     },
     "binary_sensor": {
+      "device_connection_reported": {"name": "Connexion de la borne signalée"},
+      "device_working_reported": {"name": "Bon fonctionnement signalé"},
+      "current_limit_pending": {"name": "Consigne de courant en attente"},
+      "rfid_reader_reported": {"name": "Lecteur RFID signalé actif"},
+      "authentication_required_reported": {"name": "Authentification demandée"},
+      "automatic_phase_switch_reported": {"name": "Commutation automatique des phases signalée"},
+      "physical_cable_lock_reported": {"name": "Verrouillage physique du câble signalé"},
+      "charge_cancelled_reported": {"name": "Annulation de charge signalée"},
       "online": {
         "name": "En ligne"
       },

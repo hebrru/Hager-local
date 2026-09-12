@@ -8,7 +8,30 @@ This project is focused on `witty solar` control and monitoring from Home Assist
 
 [![Buy Me a Coffee](https://cdn.buymeacoffee.com/buttons/v2/default-yellow.png)](https://www.buymeacoffee.com/hebrru)
 
-## 0.2.20b1 - experimental current control
+## 0.2.20b2 - public telemetry beta
+
+Adds **22 read-only entities** from data already fetched by the integration:
+per-phase power/energy, installer current limits, configured solar ratio and
+fallback current, reference-voltage/key diagnostics, a charging-state summary,
+a received-or-cached weekly profile and eight reported status flags.
+
+Includes a privacy-minimized Home Assistant diagnostic report for community
+support, plus offline regression tests and English/French labels. Inactive
+phase L2/L3 measurements are registered disabled by default on single-phase setups.
+
+**Scope:** this update adds no new charging command or network endpoint. It
+retains the experimental cloud current control introduced in b1. An editable
+weekly planner, solar/minimum/fallback-current setters, access/phase setters,
+session history, WebSocket updates and direct Modbus control are **not included**.
+The received profile may contain cached values and is not a live acknowledgement.
+
+This is a community integration, not an official Hager product. The stable
+release remains `0.2.19`; hardware validation of the beta current command is
+still pending. Back up before installing and restart Home Assistant afterwards.
+
+[What is included, known limitations and sharing instructions](docs/TELEMETRY_BETA.md).
+
+## Current control inherited from 0.2.20b1
 
 This prerelease adds **Charge current limit** (**Limite de courant de charge**),
 with 1 A steps inside the live installer limits and the supported 6-32 A range.
