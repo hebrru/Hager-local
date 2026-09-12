@@ -34,6 +34,8 @@ from .const import (
     USER_AGENT,
 )
 
+from .current_control import CurrentControlError, async_set_confirmed_current
+
 LOGGER = logging.getLogger(__name__)
 
 SUN_MODE_DISABLED = "Disabled"
@@ -1322,6 +1324,7 @@ class HagerApiClient:
         self._entry = entry
         self._session = async_get_clientsession(hass)
         self._refresh_lock = asyncio.Lock()
+        self._current_limit_locks: dict[tuple[str, str], asyncio.Lock] = {}
         self._wallbox_configuration_cache: dict[tuple[str, str], dict[str, Any]] = {}
         self._wallbox_charge_strategy_memory: dict[str, dict[str, list[dict[str, int]]]] = {}
 
@@ -1609,6 +1612,43 @@ class HagerApiClient:
             wallbox,
             sun_mode_updates={"holdingTimeInMin": max(0, int(round(minutes)))},
         )
+
+    async def async_set_max_charge_current(
+        self, wallbox: HagerWallboxSnapshot, value: float,
+    ) -> None:
+        """Set only the operating current ceiling, with fresh bounds and readback."""
+        cache_key = (wallbox.emc_hardware_id, wallbox.configuration_id)
+        lock = self._current_limit_locks.setdefault(cache_key, asyncio.Lock())
+        if lock.locked():
+            raise HagerApiError("A current-limit command is already running; wait and refresh")
+
+        async def read_configuration() -> dict[str, Any] | None:
+            # Deliberately do not use the snapshot/cache fallback here.
+            return await self._get_wallbox_configuration(*cache_key)
+
+        async def write_limit(amperes: int) -> None:
+            await self._request_json(
+                "put",
+                f"{E3DC_AUTH_BASE_URL}/wallboxes/{cache_key[0]}/{cache_key[1]}/configuration",
+                json_payload={"maxChargeCurrent": amperes},
+                expect_json=False,
+                retry_on_auth_error=False,
+            )
+
+        def observe_configuration(configuration: dict[str, Any]) -> None:
+            self._wallbox_configuration_cache[cache_key] = dict(configuration)
+            wallbox.configuration = dict(configuration)
+
+        async with lock:
+            try:
+                await async_set_confirmed_current(
+                    value,
+                    read_configuration=read_configuration,
+                    write_limit=write_limit,
+                    observe_configuration=observe_configuration,
+                )
+            except CurrentControlError as err:
+                raise HagerApiError(str(err)) from err
 
     async def async_set_boost_mode(self, wallbox: HagerWallboxSnapshot, enabled: bool) -> None:
         await self._async_update_wallbox_configuration(wallbox, {"chargeFull": enabled})

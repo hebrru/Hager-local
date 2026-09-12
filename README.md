@@ -8,6 +8,23 @@ This project is focused on `witty solar` control and monitoring from Home Assist
 
 [![Buy Me a Coffee](https://cdn.buymeacoffee.com/buttons/v2/default-yellow.png)](https://www.buymeacoffee.com/hebrru)
 
+## 0.2.20b1 - experimental current control
+
+This prerelease adds **Charge current limit** (**Limite de courant de charge**),
+with 1 A steps inside the live installer limits and the supported 6-32 A range.
+It uses the **Hager Flow cloud**, not direct Modbus. It never changes installer
+protection limits, starts charging or enables Boost implicitly.
+
+Commands require fresh online data and a matching non-pending cloud readback.
+Hardware behaviour is **not yet validated**; this is not an unattended solar or
+battery-protection controller. The stable release remains `0.2.19`.
+
+A bounded, read-only Modbus diagnostic tool and offline tests are also included.
+Direct Modbus current writes remain disabled: no valid register response has
+yet been obtained from the investigated Witty Solar setup.
+
+See [current-control safeguards, Modbus findings and validation instructions](docs/CURRENT_CONTROL_AND_MODBUS.md).
+
 ## What It Exposes
 
 - A dedicated device for the Hager `witty solar` charger

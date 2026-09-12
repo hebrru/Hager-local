@@ -4,13 +4,20 @@ from __future__ import annotations
 
 from homeassistant.components.number import NumberEntity, NumberMode
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.const import PERCENTAGE, UnitOfTime
+from homeassistant.const import PERCENTAGE, UnitOfElectricCurrent, UnitOfTime
 from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers.entity import EntityCategory
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
 from .api import HagerApiError
+from .current_control import (
+    CurrentControlError,
+    configured_current,
+    current_bounds,
+    current_update_pending,
+    validate_live_configuration,
+)
 from .entity import HagerLocalEntity, async_add_wallbox_entities
 
 
@@ -28,9 +35,79 @@ async def async_setup_entry(
             lambda wallbox_key: [
                 HagerLedIntensityNumber(coordinator, wallbox_key),
                 HagerSolarHoldingTimeNumber(coordinator, wallbox_key),
+                HagerChargeCurrentLimitNumber(coordinator, wallbox_key),
             ],
         )
     )
+
+
+class HagerChargeCurrentLimitNumber(HagerLocalEntity, NumberEntity):
+    """Operating current ceiling; never an installer/protection setting."""
+
+    _attr_translation_key = "charge_current_limit"
+    _attr_entity_category = EntityCategory.CONFIG
+    _attr_mode = NumberMode.BOX  # Avoid a write for every movement of a slider.
+    _attr_native_step = 1
+    _attr_native_unit_of_measurement = UnitOfElectricCurrent.AMPERE
+    _attr_icon = "mdi:current-ac"
+
+    def __init__(self, coordinator, wallbox_key: str) -> None:
+        super().__init__(coordinator, wallbox_key)
+        self._attr_unique_id = f"{self.wallbox.device_id}_charge_current_limit"
+
+    @property
+    def available(self) -> bool:
+        if not super().available:
+            return False
+        try:
+            configuration = validate_live_configuration(self.wallbox.properties)
+            return not current_update_pending(configuration)
+        except CurrentControlError:
+            return False
+
+    @property
+    def native_min_value(self) -> float:
+        try:
+            return float(current_bounds(self.wallbox.properties).minimum)
+        except CurrentControlError:
+            return 6.0  # Entity is unavailable; no permissive assumed upper limit.
+
+    @property
+    def native_max_value(self) -> float:
+        try:
+            return float(current_bounds(self.wallbox.properties).maximum)
+        except CurrentControlError:
+            return 6.0
+
+    @property
+    def native_value(self) -> float | None:
+        try:
+            return float(configured_current(self.wallbox.properties))
+        except CurrentControlError:
+            return None
+
+    @property
+    def extra_state_attributes(self) -> dict:
+        attributes = dict(super().extra_state_attributes or {})
+        attributes.update({
+            "control_transport": "Hager Flow cloud",
+            "experimental": True,
+            "confirmation": "cloud_configuration_readback_not_measured_car_current",
+            "installer_limit_a": self.wallbox.properties.get("upperCurrentLimit"),
+            "update_pending": self.wallbox.properties.get("maxChargeCurrentWatingFor"),
+        })
+        return attributes
+
+    async def async_set_native_value(self, value: float) -> None:
+        if not self.available:
+            raise HomeAssistantError("Current control unavailable; check the wallbox and refresh")
+        try:
+            await self.coordinator.api.async_set_max_charge_current(self.wallbox, value)
+        except HagerApiError as err:
+            self.async_write_ha_state()  # Only actually observed data, never the request.
+            raise HomeAssistantError(str(err)) from err
+        self.async_write_ha_state()
+        await self.coordinator.async_request_refresh()
 
 
 class HagerLedIntensityNumber(HagerLocalEntity, NumberEntity):

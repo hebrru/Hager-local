@@ -160,6 +160,9 @@
       }
     },
     "number": {
+      "charge_current_limit": {
+        "name": "Charge current limit"
+      },
       "led_intensity": {
         "name": "LED intensity"
       },

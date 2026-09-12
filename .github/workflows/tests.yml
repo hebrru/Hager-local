@@ -1,0 +1,28 @@
+name: Offline tests
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  tests:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Validate Python syntax
+        run: python -m compileall -q custom_components tools tests
+      - name: Run offline unit and binding tests
+        run: python -m unittest discover -s tests -v
+      - name: Validate whitespace
+        run: git diff --check HEAD^
