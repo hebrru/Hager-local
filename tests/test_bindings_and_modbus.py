@@ -230,7 +230,8 @@ class MetadataTests(unittest.TestCase):
     def test_manifest_is_cloud_and_prerelease(self):
         data = json.loads((ROOT / "custom_components/hager_local/manifest.json").read_text(encoding="utf-8"))
         self.assertEqual(data["iot_class"], "cloud_polling")
-        self.assertEqual(data["version"], "0.2.20b2")
+        # A branding-only beta may increment its suffix without becoming stable.
+        self.assertRegex(data["version"], r"^0[.]2[.]20b[1-9][0-9]*$")
 
 
 if __name__ == "__main__":
